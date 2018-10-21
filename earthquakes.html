@@ -1,0 +1,352 @@
+<html>
+
+<head>
+
+  <title>AlphaTeam</title>
+  <link rel="shortcut icon" href="img/logo.png" type="image/png">
+  <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/stylesheet.css" rel="stylesheet">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+</head>
+
+<body class="index">
+  <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+    <a class="navbar-brand" href="index.html"> <img src="img/logo.png" width="30px">Alpha Team </a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown"
+      aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNavDropdown">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" href="location.html">My location</a>
+        </li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" data-toggle="dropdown" aria-haspopup="true"
+            aria-expanded="false">
+            Earthquakes
+          </a>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdownMenuLink">
+            <a class="dropdown-item active" href="#">Earthquake</a>
+            <a class="dropdown-item" href="#">Hurricanes </a>
+            <a class="dropdown-item" href="#">Volcanos</a>
+            <a class="dropdown-item" href="#">Wildfires</a>
+            <a class="dropdown-item" href="#">Tsunamis</a>
+            <a class="dropdown-item" href="#">Tornadoes</a>
+            <a class="dropdown-item" href="#">Thunderstorms & Lighting</a>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </nav>
+  <br />
+  <br />
+
+  <div id="map" style="margin-top: 8px;">
+  </div>
+
+  <div class="map">
+    <span class="dot" style="background-color:#7CFC00"></span>
+    <pre style="margin-top: 3px;">    Small(Every Hour)  <span class="dot" style="background-color:#32CD32"></span>    Small(Every Day)   <span class="dot" style="background-color:#006400"></span>    Small(Every Week)   <span class="dot" style="background-color:#00BFFF"></span>    Major(Every 50 Years)  <span class="dot" style="background-color:#F4A460"></span>    Great(Every 100 Years)   <span class="dot" style="background-color:#D2691E"></span>    Great(Every 300 Years)   <span class="dot" style="background-color:red"></span>    Super(Every 1000 Years)</pre>
+  </div>
+
+  <div class="container bg">
+    <h2>Last hour earthquakes around the world:</h2>
+    <div id="map-container">
+      <div id="table">
+        <table class="table table-striped table-bordered">
+          <tr>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Type</th>
+            <th>Place</th>
+          </tr>
+        </table>
+      </div>
+      <script>
+        var map;
+
+        function initMap() {
+          map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: 20, lng: -160 },
+            zoom: 2,
+            styles: mapStyle
+          });
+
+          map.data.setStyle(styleFeature);
+
+          // Get the earthquake data (JSONP format)
+          // This feed is a copy from the USGS feed, you can find the originals here:
+          //   http://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php
+          var script = document.createElement('script');
+          script.setAttribute(
+            'src',
+            'https://storage.googleapis.com/mapsdevsite/json/quakes.geo.json');
+          document.getElementsByTagName('head')[0].appendChild(script);
+        }
+
+        // Defines the callback function referenced in the jsonp file.
+        function eqfeed_callback(data) {
+          map.data.addGeoJson(data);
+        }
+
+        function styleFeature(feature) {
+          var low = [151, 83, 34];   // color of mag 1.0
+          var high = [5, 69, 54];  // color of mag 6.0 and above
+          var minMag = 1.0;
+          var maxMag = 6.0;
+
+          // fraction represents where the value sits between the min and max
+          var fraction = (Math.min(feature.getProperty('mag'), maxMag) - minMag) /
+            (maxMag - minMag);
+
+          var color = interpolateHsl(low, high, fraction);
+
+          return {
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              strokeWeight: 0.5,
+              strokeColor: '#fff',
+              fillColor: color,
+              fillOpacity: 2 / feature.getProperty('mag'),
+              // while an exponent would technically be correct, quadratic looks nicer
+              scale: Math.pow(feature.getProperty('mag'), 2)
+            },
+            zIndex: Math.floor(feature.getProperty('mag'))
+          };
+        }
+
+        function interpolateHsl(lowHsl, highHsl, fraction) {
+          var color = [];
+          for (var i = 0; i < 3; i++) {
+            // Calculate color based on the fraction.
+            color[i] = (highHsl[i] - lowHsl[i]) * fraction + lowHsl[i];
+          }
+
+          return 'hsl(' + color[0] + ',' + color[1] + '%,' + color[2] + '%)';
+        }
+
+        var mapStyle = [{
+          'featureType': 'all',
+          'elementType': 'all',
+          'stylers': [{ 'visibility': 'off' }]
+        }, {
+          'featureType': 'landscape',
+          'elementType': 'geometry',
+          'stylers': [{ 'visibility': 'on' }, { 'color': '#fcfcfc' }]
+        }, {
+          'featureType': 'water',
+          'elementType': 'labels',
+          'stylers': [{ 'visibility': 'off' }]
+        }, {
+          'featureType': 'water',
+          'elementType': 'geometry',
+          'stylers': [{ 'visibility': 'on' }, { 'hue': '#5f94ff' }, { 'lightness': 60 }]
+        }];
+        $.getJSON("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson",
+          function (data) {
+            $.each(data.features, function (k, v) {
+              var date = new Date(v.properties.time);
+              $("<tr><td>" + date.toDateString() + "</td><td>" + date.toLocaleTimeString() + "</td><td>" + v.properties.type + "</td><td>" + v.properties.place + "</td></tr>").appendTo("table");
+            });
+          });
+
+
+      </script>
+      <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDZa6fRzh_evNubmlKdMTobCEUgfWuVij8&callback=initMap">
+      </script>
+    </div>
+
+
+
+
+    <div class="container">
+      <h1> Earthquakes </h1>
+      <p>An earthquake is the sudden, rapid shaking of the earth,
+        caused by the breaking and shifting of underground rock.
+        Earthquakes can cause buildings to collapse and cause heavy items to fall,
+        resulting in injuries and property damage.</p>
+      <h4>Earthquakes can:</h4>
+      <ul>
+        <li> Happen anywhere – though higher risk areas include California, Alaska, and the Mississippi Valley </li>
+
+        <li> Happen without warning</li>
+
+        <li> Cause fires and damage roads; and</li>
+
+        <li> Cause tsunamis, landslides, and avalanches.</li>
+
+        <li>If an earthquake happens, protect yourself right away. Drop, Cover, then Hold On!</li>
+
+        <li> If in a vehicle, pull over and stop.</li>
+
+        <li> If in bed, stay there.</li>
+
+        <li> If outdoors, stay outdoors.</li>
+
+        <li> Do not get in a doorway.</li>
+
+        <li> Do not run outside.</li>
+      </ul>
+      <h4>How to stay safe when an earthquake threatens</h4>
+
+      <h6>Prepare NOW:</h6>
+      <p>
+        Secure items, such as televisions, and objects that hang on walls. Store heavy and breakable objects on low
+        shelves.
+        Practice Drop, Cover, then Hold On with family and coworkers. Drop to your hands and knees. Cover your head and
+        neck with your arms. Crawl only as far as needed to reach cover from falling materials. Hold on to any sturdy
+        furniture until the shaking stops.
+        Create a family emergency communications plan that has an out-of-state contact.
+        Plan where to meet if you get separated.
+      </p>
+      <p>
+        Make a supply kit that includes enough food and water for at least three days, a flashlight, a fire
+        extinguisher, and a whistle. Consider each person’s specific needs, including medication. Do not forget the
+        needs of pets. Have extra batteries and charging devices for phones and other critical equipment.
+        Consider obtaining an earthquake insurance policy. Standard homeowner’s insurance does not cover earthquake
+        damage.
+        Consider a retrofit of your building to correct structural issues that make it vulnerable to collapse during an
+        earthquake.<br>
+        Survive DURING
+      </p>
+      <p>
+        Drop, Cover, then Hold On like you practiced. Drop to your hands and knees. Cover your head and neck with your
+        arms.
+        Hold on to any sturdy furniture until the shaking stops. Crawl only if you can reach better cover without going
+        through an area with more debris.
+
+      </p>
+      <p>
+        If in bed, stay there and cover your head and neck with a pillow.
+        <br>
+        If inside, stay there until the shaking stops. DO NOT run outside.
+        <br>
+        If in a vehicle, stop in a clear area that is away from buildings, trees, overpasses, underpasses, or utility
+        wires.
+        <br>
+        If you are in a high-rise building, expect fire alarms and sprinklers to go off. Do not use elevators.
+        <br>
+        If near slopes, cliffs, or mountains, be alert for falling rocks and landslides.
+        <br>
+      </p>
+
+      <h6>Be safe after:</h6>
+      <p>
+        Expect aftershocks to follow the largest shock of an earthquake.
+        Check yourself for injury and provide assistance to others if you have training.
+        If in a damaged building, go outside and quickly move away from the building.
+        Do not enter damaged buildings.
+      </p>
+      <p>
+        If you are trapped, cover your mouth. Send a text, bang on a pipe or wall, or use a whistle instead of shouting
+        so that rescuers can locate you.
+        If you are in an area that may experience tsunamis, go inland or to higher ground immediately after the shaking
+        stops.
+        Save phone calls for emergencies.<br>
+        Once safe, monitor local news reports via battery operated radio, TV, social media, and cell phone text alerts
+        for emergency information and instructions.
+        <br>
+        Use extreme caution during post-disaster clean-up of buildings and around debris. Do not attempt to remove
+        heavy debris by yourself. Wear protective clothing, including a long-sleeved shirt, long pants, work gloves,
+        and sturdy, thick-soled shoes during clean-up.
+      </p>
+      <br>
+      <h4>Earthquake checklist:</h4>
+    </div>
+  </div>
+
+  <div class="checklist">
+    <div class="div-quote" id="div-quote">
+      <p><strong>In case of disaster the first thing we need to take is backpack with first aid</strong></p>
+    </div>
+
+    <div class="div-backpack" id="div-backpack" onclick="quote('div-backpack')">
+      <img src="img/backpack.png" class="img-backpack">
+    </div>
+
+    <div class="div-water" id="div-water" onclick="quote('div-water')">
+      <img src="img/water.png" class="img-item">
+    </div>
+
+    <div class="div-firstaid" id="div-firstaid" onclick="quote('div-firstaid')">
+      <img src="img/firstaid.png" class="img-item">
+    </div>
+
+    <div class="div-flashlight" id="div-flashlight" onclick="quote('div-flashlight')">
+      <img src="img/flashlight.png" class="img-item">
+    </div>
+
+    <div class="div-canfood" id="div-canfood" onclick="quote('div-canfood')">
+      <img src="img/canfood.png" class="img-item">
+    </div>
+
+    <div class="div-document" id="div-document" onclick="quote('div-document')">
+      <img src="img/document.png" class="img-item">
+    </div>
+
+    <div class="div-phone" id="div-phone" onclick="quote('div-phone')">
+      <img src="img/phone.png" class="img-item">
+    </div>
+
+    <div class="div-knife" id="div-knife" onclick="quote('div-knife')">
+      <img src="img/knife.png" class="img-item">
+    </div>
+
+    <div class="div-money" id="div-money" onclick="quote('div-money')">
+      <img src="img/money.png" class="img-item">
+    </div>
+
+
+
+
+
+
+
+    <script>
+      function quote(id) {
+
+        if (id == "div-backpack") document.getElementById("div-quote").innerHTML = "In case of disaster the first thing we need to take is backpack with first aid";
+        if (id == "div-water") document.getElementById("div-quote").innerHTML = "Peoples can survive without water !";
+        if (id == "div-firstaid") document.getElementById("div-quote").innerHTML = "First aid - In case of injuri person we need medicaments";
+        if (id == "div-flashlight") document.getElementById("div-quote").innerHTML = "Flashlight - In case of out of electricity we need a flashlight";
+        if (id == "div-canfood") document.getElementById("div-quote").innerHTML = "Canfood - If disaster is of great proportions";
+        if (id == "div-document") document.getElementById("div-quote").innerHTML = "Documnet - If we need to travel to another country for evacuation";
+        if (id == "div-phone") document.getElementById("div-quote").innerHTML = "Phone - Calling someone";
+        if (id == "div-knife") document.getElementById("div-quote").innerHTML = "Multifuctional Knife - If we need some tools";
+        if (id == "div-money") document.getElementById("div-quote").innerHTML = "Money - If we need to travel to another country for evacuation";
+
+
+
+
+
+      }
+
+
+    </script>
+  </div>
+
+  </div>
+
+
+
+  <div class="footer">
+    <img src="img/nasa.png" height="170px" width="220px">
+    <h5>NASA SpaceApps 2018 - AlphaTeam Project</h5>
+  </div>
+
+
+
+
+
+
+
+  <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+
+  <script src="bootstrap/js/bootstrap.min.js"></script>
+
+</body>
+
+</html>
